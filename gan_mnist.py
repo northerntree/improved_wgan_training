@@ -225,14 +225,23 @@ with tf.Session() as session:
             disc_iters = 1
         else:
             disc_iters = CRITIC_ITERS
+
         for i in xrange(disc_iters):
             _data = gen.next()
+
             _disc_cost, _ = session.run(
                 [disc_cost, disc_train_op],
                 feed_dict={real_data: _data}
             )
+
+            _alpha, _gra, = session.run([alpha, indi_gra], feed_dict = {real_data: _data});
+
+            full_mat = np.concatencate(_alpha, _gra, axis=1);
+            np.save('/home/shaobocui/gan/output_{}'.format(iteration), full_mat);
             if clip_disc_weights is not None:
                 _ = session.run(clip_disc_weights)
+
+
 
         lib.plot.plot('train disc cost', _disc_cost)
         lib.plot.plot('time', time.time() - start_time)
@@ -245,6 +254,7 @@ with tf.Session() as session:
                     disc_cost, 
                     feed_dict={real_data: images}
                 )
+
                 dev_disc_costs.append(_dev_disc_cost)
             lib.plot.plot('dev disc cost', np.mean(dev_disc_costs))
 
@@ -256,9 +266,3 @@ with tf.Session() as session:
 
         lib.plot.tick()
 
-
-        if iteration % 100 == 0:
-            alpha_np = session.run(alpha);
-            gra_np = session.run(indi_gra);
-            full_mat = np.concatencate(alpha_np, gra_np, axis=1);
-            np.save('/home/shaobocui/gan/output_{}'.format(iteration), full_mat);
