@@ -146,6 +146,7 @@ elif MODE == 'wgan-gp':
 
 
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+    indi_gra = (slopes - 1)**2;
     gradient_penalty = tf.reduce_mean((slopes-1.)**2)
 
     disc_cost += LAMBDA*gradient_penalty
@@ -257,7 +258,7 @@ with tf.Session() as session:
 
 
         if iteration % 100 == 0:
-            alpha_np = alpha.eval();
-            gra_np = gradient_penalty.eval();
+            alpha_np = session.run(alpha);
+            gra_np = session.run(indi_gra);
             full_mat = np.concatencate(alpha_np, gra_np, axis=1);
             np.save('/home/shaobocui/gan/output_{}'.format(iteration), full_mat);
