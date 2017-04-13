@@ -24,7 +24,7 @@ DIM = 64 # Model dimensionality
 BATCH_SIZE = 50 # Batch size
 CRITIC_ITERS = 5 # For WGAN and WGAN-GP, number of critic iters per gen iter
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
-ITERS = 200000 # How many generator iterations to train for 
+ITERS = 10000 # How many generator iterations to train for
 OUTPUT_DIM = 784 # Number of pixels in MNIST (28*28)
 
 lib.print_model_settings(locals().copy())
@@ -143,8 +143,18 @@ elif MODE == 'wgan-gp':
     differences = fake_data - real_data
     interpolates = real_data + (alpha*differences)
     gradients = tf.gradients(Discriminator(interpolates), [interpolates])[0]
+
+
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
     gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+
+    alpha_np = alpha.eval();
+    gra_np = gradient_penalty.eval();
+    full_mat = np.concatencate(alpha_np, gra_np, axis=1);
+
+    np.save("full_mat",full_mat);
+
+
     disc_cost += LAMBDA*gradient_penalty
 
     gen_train_op = tf.train.AdamOptimizer(
