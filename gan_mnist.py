@@ -148,13 +148,6 @@ elif MODE == 'wgan-gp':
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
     gradient_penalty = tf.reduce_mean((slopes-1.)**2)
 
-    alpha_np = alpha.eval();
-    gra_np = gradient_penalty.eval();
-    full_mat = np.concatencate(alpha_np, gra_np, axis=1);
-
-    np.save("full_mat",full_mat);
-
-
     disc_cost += LAMBDA*gradient_penalty
 
     gen_train_op = tf.train.AdamOptimizer(
@@ -261,3 +254,10 @@ with tf.Session() as session:
             lib.plot.flush()
 
         lib.plot.tick()
+
+
+        if iteration % 100 == 0:
+            alpha_np = alpha.eval();
+            gra_np = gradient_penalty.eval();
+            full_mat = np.concatencate(alpha_np, gra_np, axis=1);
+            np.save('/home/shaobocui/gan/output_{}'.format(iteration), full_mat);
