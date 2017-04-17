@@ -15,6 +15,10 @@ import tflib as lib
 import tflib.ops.linear
 import tflib.plot
 
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.2
+
+
 MODE = 'wgan-gp' # wgan or wgan-gp
 DATASET = '8gaussians' # 8gaussians, 25gaussians, swissroll
 DIM = 512 # Model dimensionality
