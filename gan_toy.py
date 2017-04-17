@@ -56,89 +56,7 @@ def Discriminator(inputs):
     output = lib.ops.linear.Linear('Discriminator.4', DIM, 1, output)
     return tf.reshape(output, [-1])
 
-real_data = tf.placeholder(tf.float32, shape=[None, 2])
-fake_data = Generator(BATCH_SIZE, real_data)
 
-disc_real = Discriminator(real_data)
-disc_fake = Discriminator(fake_data)
-
-# WGAN loss
-disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
-gen_cost = -tf.reduce_mean(disc_fake)
-
-# WGAN gradient penalty
-if MODE == 'wgan-gp':
-    alpha = tf.random_uniform(
-        shape=[BATCH_SIZE,1], 
-        minval=0.,
-        maxval=1.
-    )
-    interpolates = alpha*real_data + ((1-alpha)*fake_data)
-    disc_interpolates = Discriminator(interpolates)
-    gradients = tf.gradients(disc_interpolates, [interpolates])[0]
-    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
-    gradient_penalty = tf.reduce_mean((slopes-1)**2)
- 
-    disc_cost += LAMBDA*gradient_penalty
-
-disc_params = lib.params_with_name('Discriminator')
-gen_params = lib.params_with_name('Generator')
-
-if MODE == 'wgan-gp':
-    disc_train_op = tf.train.AdamOptimizer(
-        learning_rate=1e-4, 
-        beta1=0.5, 
-        beta2=0.9
-    ).minimize(
-        disc_cost, 
-        var_list=disc_params
-    )
-    if len(gen_params) > 0:
-        gen_train_op = tf.train.AdamOptimizer(
-            learning_rate=1e-4, 
-            beta1=0.5, 
-            beta2=0.9
-        ).minimize(
-            gen_cost, 
-            var_list=gen_params
-        )
-    else:
-        gen_train_op = tf.no_op()
-
-else:
-    disc_train_op = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(
-        disc_cost, 
-        var_list=disc_params
-    )
-    if len(gen_params) > 0:
-        gen_train_op = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(
-            gen_cost, 
-            var_list=gen_params
-        )
-    else:
-        gen_train_op = tf.no_op()
-
-
-    # Build an op to do the weight clipping
-    clip_ops = []
-    for var in disc_params:
-        clip_bounds = [-.01, .01]
-        clip_ops.append(
-            tf.assign(
-                var, 
-                tf.clip_by_value(var, clip_bounds[0], clip_bounds[1])
-            )
-        )
-    clip_disc_weights = tf.group(*clip_ops)
-
-print "Generator params:"
-for var in lib.params_with_name('Generator'):
-    print "\t{}\t{}".format(var.name, var.get_shape())
-print "Discriminator params:"
-for var in lib.params_with_name('Discriminator'):
-    print "\t{}\t{}".format(var.name, var.get_shape())
-
-frame_index = [0]
 def generate_image(true_dist):
     """
     Generates and saves a plot of the true distribution, the generator, and the
@@ -148,81 +66,167 @@ def generate_image(true_dist):
     RANGE = 3
 
     points = np.zeros((N_POINTS, N_POINTS, 2), dtype='float32')
-    points[:,:,0] = np.linspace(-RANGE, RANGE, N_POINTS)[:,None]
-    points[:,:,1] = np.linspace(-RANGE, RANGE, N_POINTS)[None,:]
-    points = points.reshape((-1,2))
+    points[:, :, 0] = np.linspace(-RANGE, RANGE, N_POINTS)[:, None]
+    points[:, :, 1] = np.linspace(-RANGE, RANGE, N_POINTS)[None, :]
+    points = points.reshape((-1, 2))
     samples, disc_map = session.run(
-        [fake_data, disc_real], 
-        feed_dict={real_data:points}
+        [fake_data, disc_real],
+        feed_dict={real_data: points}
     )
-    disc_map = session.run(disc_real, feed_dict={real_data:points})
+    disc_map = session.run(disc_real, feed_dict={real_data: points})
 
     plt.clf()
 
     x = y = np.linspace(-RANGE, RANGE, N_POINTS)
-    plt.contour(x,y,disc_map.reshape((len(x), len(y))))
+    plt.contour(x, y, disc_map.reshape((len(x), len(y))))
 
-    plt.scatter(true_dist[:, 0], true_dist[:, 1], c='orange',  marker='+')
-    plt.scatter(samples[:, 0],    samples[:, 1],    c='green', marker='+')
+    plt.scatter(true_dist[:, 0], true_dist[:, 1], c='orange', marker='+')
+    plt.scatter(samples[:, 0], samples[:, 1], c='green', marker='+')
 
-    plt.savefig('frame'+str(frame_index[0])+'.jpg')
+    plt.savefig('frame' + str(frame_index[0]) + '.jpg')
     frame_index[0] += 1
+
 
 # Dataset iterator
 def inf_train_gen():
     if DATASET == '25gaussians':
-    
+
         dataset = []
-        for i in xrange(100000/25):
+        for i in xrange(100000 / 25):
             for x in xrange(-2, 3):
                 for y in xrange(-2, 3):
-                    point = np.random.randn(2)*0.05
-                    point[0] += 2*x
-                    point[1] += 2*y
+                    point = np.random.randn(2) * 0.05
+                    point[0] += 2 * x
+                    point[1] += 2 * y
                     dataset.append(point)
         dataset = np.array(dataset, dtype='float32')
         np.random.shuffle(dataset)
-        dataset /= 2.828 # stdev
+        dataset /= 2.828  # stdev
         while True:
-            for i in xrange(len(dataset)/BATCH_SIZE):
-                yield dataset[i*BATCH_SIZE:(i+1)*BATCH_SIZE]
+            for i in xrange(len(dataset) / BATCH_SIZE):
+                yield dataset[i * BATCH_SIZE:(i + 1) * BATCH_SIZE]
 
     elif DATASET == 'swissroll':
 
         while True:
             data = sklearn.datasets.make_swiss_roll(
-                n_samples=BATCH_SIZE, 
+                n_samples=BATCH_SIZE,
                 noise=0.25
             )[0]
             data = data.astype('float32')[:, [0, 2]]
-            data /= 7.5 # stdev plus a little
+            data /= 7.5  # stdev plus a little
             yield data
 
     elif DATASET == '8gaussians':
-    
+
         scale = 2.
         centers = [
-            (1,0),
-            (-1,0),
-            (0,1),
-            (0,-1),
-            (1./np.sqrt(2), 1./np.sqrt(2)),
-            (1./np.sqrt(2), -1./np.sqrt(2)),
-            (-1./np.sqrt(2), 1./np.sqrt(2)),
-            (-1./np.sqrt(2), -1./np.sqrt(2))
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (1. / np.sqrt(2), 1. / np.sqrt(2)),
+            (1. / np.sqrt(2), -1. / np.sqrt(2)),
+            (-1. / np.sqrt(2), 1. / np.sqrt(2)),
+            (-1. / np.sqrt(2), -1. / np.sqrt(2))
         ]
-        centers = [(scale*x,scale*y) for x,y in centers]
+        centers = [(scale * x, scale * y) for x, y in centers]
         while True:
             dataset = []
             for i in xrange(BATCH_SIZE):
-                point = np.random.randn(2)*.02
+                point = np.random.randn(2) * .02
                 center = random.choice(centers)
                 point[0] += center[0]
                 point[1] += center[1]
                 dataset.append(point)
             dataset = np.array(dataset, dtype='float32')
-            dataset /= 1.414 # stdev
+            dataset /= 1.414  # stdev
             yield dataset
+
+with tf.device('/gpu:0'):
+    real_data = tf.placeholder(tf.float32, shape=[None, 2])
+    fake_data = Generator(BATCH_SIZE, real_data)
+
+    disc_real = Discriminator(real_data)
+    disc_fake = Discriminator(fake_data)
+
+    # WGAN loss
+    disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
+    gen_cost = -tf.reduce_mean(disc_fake)
+
+    # WGAN gradient penalty
+    if MODE == 'wgan-gp':
+        alpha = tf.random_uniform(
+            shape=[BATCH_SIZE,1],
+            minval=0.,
+            maxval=1.
+        )
+        interpolates = alpha*real_data + ((1-alpha)*fake_data)
+        disc_interpolates = Discriminator(interpolates)
+        gradients = tf.gradients(disc_interpolates, [interpolates])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+        gradient_penalty = tf.reduce_mean((slopes-1)**2)
+
+        disc_cost += LAMBDA*gradient_penalty
+
+    disc_params = lib.params_with_name('Discriminator')
+    gen_params = lib.params_with_name('Generator')
+
+    if MODE == 'wgan-gp':
+        disc_train_op = tf.train.AdamOptimizer(
+            learning_rate=1e-4,
+            beta1=0.5,
+            beta2=0.9
+        ).minimize(
+            disc_cost,
+            var_list=disc_params
+        )
+        if len(gen_params) > 0:
+            gen_train_op = tf.train.AdamOptimizer(
+                learning_rate=1e-4,
+                beta1=0.5,
+                beta2=0.9
+            ).minimize(
+                gen_cost,
+                var_list=gen_params
+            )
+        else:
+            gen_train_op = tf.no_op()
+
+    else:
+        disc_train_op = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(
+            disc_cost,
+            var_list=disc_params
+        )
+        if len(gen_params) > 0:
+            gen_train_op = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(
+                gen_cost,
+                var_list=gen_params
+            )
+        else:
+            gen_train_op = tf.no_op()
+
+
+        # Build an op to do the weight clipping
+        clip_ops = []
+        for var in disc_params:
+            clip_bounds = [-.01, .01]
+            clip_ops.append(
+                tf.assign(
+                    var,
+                    tf.clip_by_value(var, clip_bounds[0], clip_bounds[1])
+                )
+            )
+        clip_disc_weights = tf.group(*clip_ops)
+
+    print "Generator params:"
+    for var in lib.params_with_name('Generator'):
+        print "\t{}\t{}".format(var.name, var.get_shape())
+    print "Discriminator params:"
+    for var in lib.params_with_name('Discriminator'):
+        print "\t{}\t{}".format(var.name, var.get_shape())
+
+    frame_index = [0]
 
 # Train loop!
 with tf.Session() as session:
