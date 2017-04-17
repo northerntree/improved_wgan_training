@@ -15,8 +15,10 @@ import tflib as lib
 import tflib.ops.linear
 import tflib.plot
 
-config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.2
+config = tf.ConfigProto(
+    gpu_options = tf.GPUoptions(per_process_gpu_memory_fraction = 0.2),
+    device_count = {'GPU' : 1}
+)
 
 
 MODE = 'wgan-gp' # wgan or wgan-gp
@@ -233,25 +235,25 @@ with tf.device('/gpu:0'):
     frame_index = [0]
 
 # Train loop!
-    with tf.Session(config = tf.ConfigProto(log_device_placement=True)) as session:
-        session.run(tf.initialize_all_variables())
-        gen = inf_train_gen()
-        for iteration in xrange(ITERS):
-            # Train generator
-            if iteration > 0:
-                _ = session.run(gen_train_op)
-            # Train critic
-            for i in xrange(CRITIC_ITERS):
-                _data = gen.next()
-                _disc_cost, _ = session.run(
-                    [disc_cost, disc_train_op],
-                    feed_dict={real_data: _data}
-                )
-                if MODE == 'wgan':
-                    _ = session.run([clip_disc_weights])
-            # Write logs and save samples
-            lib.plot.plot('disc cost', _disc_cost)
-            if iteration % 100 == 99:
-                lib.plot.flush()
-                generate_image(_data)
-            lib.plot.tick()
+with tf.Session(config = config) as session:
+    session.run(tf.initialize_all_variables())
+    gen = inf_train_gen()
+    for iteration in xrange(ITERS):
+        # Train generator
+        if iteration > 0:
+            _ = session.run(gen_train_op)
+        # Train critic
+        for i in xrange(CRITIC_ITERS):
+            _data = gen.next()
+            _disc_cost, _ = session.run(
+                [disc_cost, disc_train_op],
+                feed_dict={real_data: _data}
+            )
+            if MODE == 'wgan':
+                _ = session.run([clip_disc_weights])
+        # Write logs and save samples
+        lib.plot.plot('disc cost', _disc_cost)
+        if iteration % 100 == 99:
+            lib.plot.flush()
+            generate_image(_data)
+        lib.plot.tick()
