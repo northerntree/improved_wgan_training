@@ -233,7 +233,7 @@ with tf.device('/gpu:0'):
     frame_index = [0]
 
 # Train loop!
-    with tf.Session() as session:
+    with tf.Session(config = tf.ConfigProto(log_device_placement=True)) as session:
         session.run(tf.initialize_all_variables())
         gen = inf_train_gen()
         for iteration in xrange(ITERS):
