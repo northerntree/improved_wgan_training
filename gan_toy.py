@@ -15,10 +15,9 @@ import tflib as lib
 import tflib.ops.linear
 import tflib.plot
 
-config = tf.ConfigProto(
-    gpu_options = tf.GPUoptions(per_process_gpu_memory_fraction = 0.2),
-    device_count = {'GPU' : 1}
-)
+config = tf.ConfigProto()
+config.per_process_gpu_memory_fraction = 0.2
+
 
 
 MODE = 'wgan-gp' # wgan or wgan-gp
